@@ -32,6 +32,9 @@ describe('GET /api/notifications', () => {
     expect(res.status).toBe(200);
     expect(res.body.map((n: { eventId: string }) => n.eventId)).toEqual(['new', 'old']);
     expect(res.body[0]).toMatchObject({ id: expect.any(String), userId: 'u1', read: false });
+    expect(Object.keys(res.body[0]).sort()).toEqual(
+      ['category', 'createdAt', 'dealId', 'eventId', 'id', 'message', 'read', 'shopName', 'updatedAt', 'userId'],
+    );
   });
 
   it('returns an empty array when there are none', async () => {

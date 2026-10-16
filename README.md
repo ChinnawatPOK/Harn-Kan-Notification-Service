@@ -6,11 +6,9 @@ Node.js + Express 5 + TypeScript, MongoDB (Mongoose), RabbitMQ (`amqplib`).
 
 ## Run
 
-The whole system runs from the shared `../compose.yaml` (MongoDB, RabbitMQ and every service). From the `harnkan/` folder:
-
 ```bash
-docker compose up -d --build                        # everything
-docker compose up -d --build notification-service   # rebuild after a code change
+docker compose up -d --build                        
+docker compose up -d --build notification-service   
 ```
 
 Locally with watch mode, against the same shared Mongo and RabbitMQ (stop the `notification-service` container first so two consumers don't share the queue):
@@ -58,16 +56,4 @@ All routes need a JWT: `Authorization: Bearer <token>` first, then cookie `token
 | Exchange | `harnkan.events`, topic, durable |
 | Queue (owned here) | `notification.deal-created`, durable, bound with `deal.created` |
 | Prefetch / ack | 10, manual |
-
-For each event: invalid message → ack and drop; otherwise insert one notification per subscriber except the creator, then ack; any non-duplicate error → `nack` with requeue. Idempotency comes from the unique `(eventId, userId)` index plus `insertMany({ ordered: false })`, so a redelivery fills in only what is missing.
-
-The connection uses amqplib's built-in recovery: it retries at startup (RabbitMQ boots slower) and reconnects forever after that, re-declaring the topology and consumer each time.
-
-### Test without Deal Service
-
-Publish through the RabbitMQ management API. `{"routed":true}` means the queue is bound. Send it twice to confirm no duplicate notifications.
-
-```bash
-curl -u guest:guest -H 'Content-Type: application/json' -X POST http://localhost:15672/api/exchanges/%2F/harnkan.events/publish -d '{"properties":{"delivery_mode":2,"content_type":"application/json","message_id":"evt-1","type":"deal.created"},"routing_key":"deal.created","payload_encoding":"string","payload":"{\"eventId\":\"evt-1\",\"eventType\":\"deal.created\",\"occurredAt\":\"2026-10-16T10:00:00Z\",\"dealId\":\"deal-1\",\"creatorId\":\"creator\",\"category\":\"DRINK\",\"shopName\":\"Cafe Amazon\",\"lat\":13.75,\"lng\":100.5}"}'
-```
 

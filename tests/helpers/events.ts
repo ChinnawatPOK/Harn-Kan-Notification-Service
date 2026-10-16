@@ -1,4 +1,4 @@
-import type { DealCreatedEvent } from '../../src/messaging/dealCreated.event';
+import type { DealCreatedEvent } from '../../src/dto/dealCreated.dto';
 
 export function dealCreated(overrides: Partial<DealCreatedEvent> = {}): DealCreatedEvent {
   return {
