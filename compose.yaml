@@ -1,0 +1,137 @@
+name: harnkan
+
+x-node-service-env: &node-service-env
+  NODE_ENV: ${NODE_ENV:-development}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  SHUTDOWN_TIMEOUT_MS: ${SHUTDOWN_TIMEOUT_MS:-10000}
+
+services:
+  mongodb:
+    image: mongo:8
+    container_name: harnkan-mongodb
+    restart: unless-stopped
+
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+      USER_SERVICE_DB: ${USER_SERVICE_DB}
+      USER_SERVICE_DB_USER: ${USER_SERVICE_DB_USER}
+      USER_SERVICE_DB_PASSWORD: ${USER_SERVICE_DB_PASSWORD}
+      NOTIFICATION_SERVICE_DB: ${NOTIFICATION_SERVICE_DB}
+      NOTIFICATION_SERVICE_DB_USER: ${NOTIFICATION_SERVICE_DB_USER}
+      NOTIFICATION_SERVICE_DB_PASSWORD: ${NOTIFICATION_SERVICE_DB_PASSWORD}
+
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongo/init.js:/docker-entrypoint-initdb.d/init.js:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--username",
+          "${MONGO_ROOT_USERNAME}",
+          "--password",
+          "${MONGO_ROOT_PASSWORD}",
+          "--authenticationDatabase",
+          "admin",
+          "--eval",
+          "db.adminCommand('ping')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: harnkan-rabbitmq
+    restart: unless-stopped
+
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 20s
+
+  user-service:
+    build: ./Harn-Kan-User-Service
+    image: harnkan/user-service
+    container_name: harnkan-user-service
+    restart: unless-stopped
+    stop_grace_period: 15s
+
+    ports:
+      - "${USER_SERVICE_PORT:-3000}:3000"
+
+    environment:
+      <<: *node-service-env
+      PORT: 3000
+      MONGODB_URI: mongodb://${USER_SERVICE_DB_USER}:${USER_SERVICE_DB_PASSWORD}@mongodb:27017/${USER_SERVICE_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  notification-service:
+    build: ./Harn-Kan-Notification-Service
+    image: harnkan/notification-service
+    container_name: harnkan-notification-service
+    restart: unless-stopped
+    stop_grace_period: 15s
+
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT:-3002}:3002"
+
+    environment:
+      <<: *node-service-env
+      PORT: 3002
+      MONGO_URI: mongodb://${NOTIFICATION_SERVICE_DB_USER}:${NOTIFICATION_SERVICE_DB_PASSWORD}@mongodb:27017/${NOTIFICATION_SERVICE_DB}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mongodb_data:
+  rabbitmq_data:
