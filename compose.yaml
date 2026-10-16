@@ -71,34 +71,6 @@ services:
       retries: 6
       start_period: 20s
 
-  user-service:
-    build: ./Harn-Kan-User-Service
-    image: harnkan/user-service
-    container_name: harnkan-user-service
-    restart: unless-stopped
-    stop_grace_period: 15s
-
-    ports:
-      - "${USER_SERVICE_PORT:-3000}:3000"
-
-    environment:
-      <<: *node-service-env
-      PORT: 3000
-      MONGODB_URI: mongodb://${USER_SERVICE_DB_USER}:${USER_SERVICE_DB_PASSWORD}@mongodb:27017/${USER_SERVICE_DB}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
-
-    depends_on:
-      mongodb:
-        condition: service_healthy
-
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
   notification-service:
     build: ./Harn-Kan-Notification-Service
     image: harnkan/notification-service
