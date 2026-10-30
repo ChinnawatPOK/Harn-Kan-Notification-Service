@@ -3,6 +3,7 @@ import { createApp } from '../src/app';
 import { Preference } from '../src/models/preference.model';
 import { JWT_SECRET, bearer, tokenFor } from './helpers/auth';
 import { useTestDb } from './helpers/db';
+import { ensureIndexes } from '../src/db/mongo';
 
 useTestDb();
 const app = createApp({ jwtSecret: JWT_SECRET });
@@ -15,6 +16,9 @@ describe('PUT /api/notifications/preferences', () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ userId: 'u1', categories: ['DRINK'] });
     expect(res.body.updatedAt).toEqual(expect.any(String));
+    const saved = await Preference.findOne({ userId: 'u1' }).lean();
+    expect(saved?.notification_prefs).toEqual(['DRINK']);
+    expect(saved).not.toHaveProperty('categories');
   });
 
   it('replaces the whole set on each save', async () => {
@@ -46,6 +50,43 @@ describe('PUT /api/notifications/preferences', () => {
     expect(await Preference.exists({ userId: 'someone-else' })).toBeNull();
     const saved = await Preference.findOne({ userId: 'u1' }).lean();
     expect(saved).not.toHaveProperty('extra');
+    expect(saved?.notification_prefs).toEqual(['DRINK']);
+  });
+
+  it('migrates existing categories into notification_prefs', async () => {
+    await Preference.collection.insertOne({
+      userId: 'legacy',
+      categories: ['FOOD'],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await ensureIndexes();
+
+    const saved = await Preference.collection.findOne({ userId: 'legacy' });
+    expect(saved?.notification_prefs).toEqual(['FOOD']);
+    expect(saved).not.toHaveProperty('categories');
+  });
+
+  it('gets saved preferences and initializes users without preferences', async () => {
+    await request(app)
+      .put(PATH)
+      .set('Authorization', bearer('u1'))
+      .send({ categories: ['FOOD'] });
+
+    const saved = await request(app)
+      .get(PATH)
+      .set('Authorization', bearer('u1'));
+    const empty = await request(app)
+      .get(PATH)
+      .set('Authorization', bearer('u2'));
+
+    expect(saved.status).toBe(200);
+    expect(saved.body.categories).toEqual(['FOOD']);
+    expect(empty.status).toBe(200);
+    expect(empty.body.categories).toEqual([]);
+    expect(await Preference.findOne({ userId: 'u2' }).lean())
+      .toHaveProperty('notification_prefs', []);
   });
 
   it('stores numeric JWT ids as strings', async () => {

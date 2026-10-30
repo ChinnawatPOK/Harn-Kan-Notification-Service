@@ -36,12 +36,12 @@ export interface PreferenceResponseDto {
 
 export function toPreferenceResponse(doc: {
   userId: string;
-  categories: string[];
+  notification_prefs: string[];
   updatedAt: Date;
 }): PreferenceResponseDto {
   return {
     userId: doc.userId,
-    categories: doc.categories as Category[],
+    categories: doc.notification_prefs as Category[],
     updatedAt: doc.updatedAt,
   };
 }

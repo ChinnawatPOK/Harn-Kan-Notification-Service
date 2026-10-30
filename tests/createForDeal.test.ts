@@ -8,7 +8,7 @@ import { dealCreated } from './helpers/events';
 useTestDb();
 
 async function subscribe(userId: string, categories: Category[]) {
-  await Preference.create({ userId, categories });
+  await Preference.create({ userId, notification_prefs: categories });
 }
 
 describe('createForDeal', () => {

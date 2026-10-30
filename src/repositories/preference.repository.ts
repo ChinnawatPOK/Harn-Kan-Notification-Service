@@ -4,7 +4,16 @@ import { Preference } from "../models/preference.model";
 export async function upsertCategories(userId: string, categories: Category[]) {
   const doc = await Preference.findOneAndUpdate(
     { userId },
-    { $set: { categories } },
+    { $set: { notification_prefs: categories } },
+    { upsert: true, returnDocument: "after", runValidators: true, lean: true },
+  );
+  return doc!;
+}
+
+export async function findOrCreateByUserId(userId: string) {
+  const doc = await Preference.findOneAndUpdate(
+    { userId },
+    { $setOnInsert: { notification_prefs: [] } },
     { upsert: true, returnDocument: "after", runValidators: true, lean: true },
   );
   return doc!;
@@ -15,7 +24,7 @@ export async function findSubscriberIds(
   excludeUserId: string,
 ): Promise<string[]> {
   const docs = await Preference.find(
-    { categories: category, userId: { $ne: excludeUserId } },
+    { notification_prefs: category, userId: { $ne: excludeUserId } },
     { userId: 1, _id: 0 },
   ).lean();
   return docs.map((d) => d.userId);

@@ -14,6 +14,14 @@ export async function connectMongo(uri: string): Promise<void> {
 }
 
 export async function ensureIndexes(): Promise<void> {
+  const migration = await Preference.collection.updateMany(
+    { notification_prefs: { $exists: false }, categories: { $exists: true } },
+    { $rename: { categories: 'notification_prefs' } },
+  );
+  if (migration.modifiedCount > 0) {
+    console.log(`[mongo] migrated ${migration.modifiedCount} notification preferences`);
+  }
+
   await Promise.all([Preference.createIndexes(), Notification.createIndexes()]);
 }
 

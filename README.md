@@ -6,6 +6,13 @@ Node.js + Express 5 + TypeScript, MongoDB (Mongoose), RabbitMQ (`amqplib`).
 
 ## Run
 
+The Notification Service and Gateway use the external Docker network
+`harnkan_default`. Create it once if it does not exist:
+
+```powershell
+docker network create harnkan_default
+```
+
 ```bash
 docker compose up -d --build                        
 docker compose up -d --build notification-service   
@@ -45,9 +52,13 @@ All routes need a JWT: `Authorization: Bearer <token>` first, then cookie `token
 
 | Method | Path | Behaviour |
 | --- | --- | --- |
-| `PUT` | `/api/notifications/preferences` | Body `{ "categories": ["DRINK"] }`. Replaces the whole set; dedupes; `[]` turns everything off. 400 for a value outside `DRINK` / `FOOD` (exact match). |
+| `GET` | `/api/notifications/preferences` | Returns the caller's saved preferences. Creates an empty preference record when none exists. |
+| `PUT` | `/api/notifications/preferences` | Body `{ "categories": ["DRINK"] }`. Replaces the whole set; dedupes; `[]` turns everything off. Stores the values in `notification_prefs` in `notification_db`, keyed by the JWT user ID. 400 for a value outside `DRINK` / `FOOD` (exact match). |
 | `GET` | `/api/notifications` | The caller's notifications, newest first |
 | `GET` | `/health` | Liveness, no auth |
+
+Existing preference documents using the old `categories` field are migrated to
+`notification_prefs` when the service connects to MongoDB.
 
 ## Messaging
 
@@ -56,4 +67,3 @@ All routes need a JWT: `Authorization: Bearer <token>` first, then cookie `token
 | Exchange | `harnkan.events`, topic, durable |
 | Queue (owned here) | `notification.deal-created`, durable, bound with `deal.created` |
 | Prefetch / ack | 10, manual |
-

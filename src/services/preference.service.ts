@@ -15,3 +15,10 @@ export async function replacePreferences(
   );
   return toPreferenceResponse(doc);
 }
+
+export async function getPreferences(
+  userId: string,
+): Promise<PreferenceResponseDto> {
+  const doc = await preferenceRepository.findOrCreateByUserId(userId);
+  return toPreferenceResponse(doc);
+}
