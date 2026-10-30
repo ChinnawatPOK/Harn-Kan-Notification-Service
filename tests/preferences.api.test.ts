@@ -85,6 +85,7 @@ describe('PUT /api/notifications/preferences', () => {
     expect(saved.body.categories).toEqual(['FOOD']);
     expect(empty.status).toBe(200);
     expect(empty.body.categories).toEqual([]);
+    expect(empty.body.updatedAt).toEqual(expect.any(String));
     expect(await Preference.findOne({ userId: 'u2' }).lean())
       .toHaveProperty('notification_prefs', []);
   });

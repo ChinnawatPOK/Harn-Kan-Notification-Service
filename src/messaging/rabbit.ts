@@ -20,11 +20,11 @@ export interface RabbitHandle {
  */
 export async function startRabbit(
   config: Config['rabbit'],
-  consumer: DealCreatedConsumer,
+  consumers: { dealCreated: DealCreatedConsumer },
   onFatal: (err: Error) => void,
 ): Promise<RabbitHandle> {
   let channel: amqp.Channel | undefined;
-  let consumerTag: string | undefined;
+  let consumerTags: string[] = [];
   let stopping = false;
 
   const connection = await amqp.connect(
@@ -50,9 +50,13 @@ export async function startRabbit(
           await ch.bindQueue(QUEUE, EXCHANGE, ROUTING_KEY);
           await ch.prefetch(PREFETCH);
 
-          const ok = await ch.consume(QUEUE, (msg) => void consumer.onMessage(ch, msg), { noAck: false });
+          const created = await ch.consume(
+            QUEUE,
+            (msg) => void consumers.dealCreated.onMessage(ch, msg),
+            { noAck: false },
+          );
           channel = ch;
-          consumerTag = ok.consumerTag;
+          consumerTags = [created.consumerTag];
           console.log(`[rabbit] consuming ${QUEUE} (bound to ${EXCHANGE} / ${ROUTING_KEY})`);
         },
       },
@@ -71,10 +75,14 @@ export async function startRabbit(
   return {
     async stop() {
       stopping = true;
-      if (channel && consumerTag) {
-        await channel.cancel(consumerTag).catch(() => undefined);
+      if (channel) {
+        await Promise.all(
+          consumerTags.map((consumerTag) =>
+            channel!.cancel(consumerTag).catch(() => undefined),
+          ),
+        );
       }
-      await consumer.drain();
+      await consumers.dealCreated.drain();
       await channel?.close().catch(() => undefined);
       await connection.close().catch(() => undefined);
       console.log('[rabbit] closed');

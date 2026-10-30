@@ -45,10 +45,16 @@ async function main() {
 
   await connectMongo(config.mongoUri);
 
-  rabbit = await startRabbit(config.rabbit, createDealCreatedConsumer(), (err) => {
-    console.error('[rabbit] gave up reconnecting', err);
-    void shutdown('RabbitMQ unavailable', 1);
-  });
+  rabbit = await startRabbit(
+    config.rabbit,
+    {
+      dealCreated: createDealCreatedConsumer(),
+    },
+    (err) => {
+      console.error('[rabbit] gave up reconnecting', err);
+      void shutdown('RabbitMQ unavailable', 1);
+    },
+  );
 
   const app = createApp({ jwtSecret: config.jwtSecret });
   server = app.listen(config.port, () => {
