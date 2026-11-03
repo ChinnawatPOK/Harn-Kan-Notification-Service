@@ -6,16 +6,11 @@ Node.js + Express 5 + TypeScript, MongoDB (Mongoose), RabbitMQ (`amqplib`).
 
 ## Run
 
-The Notification Service and Gateway use the external Docker network
-`harnkan_default`. Create it once if it does not exist:
-
-```powershell
-docker network create harnkan_default
-```
+MongoDB and RabbitMQ run from `../docker-dependencies`, which also creates the
+shared `harnkan-net` network. Start that first, then:
 
 ```bash
-docker compose up -d --build                        
-docker compose up -d --build notification-service   
+docker compose up -d --build
 ```
 
 Locally with watch mode, against the same shared Mongo and RabbitMQ (stop the `notification-service` container first so two consumers don't share the queue):
