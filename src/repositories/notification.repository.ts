@@ -1,3 +1,4 @@
+import { isValidObjectId } from 'mongoose';
 import type { CreateNotificationDto } from '../dto/notification.dto';
 import { Notification } from '../models/notification.model';
 
@@ -6,6 +7,23 @@ const DUPLICATE_KEY = 11000;
 /** The user's notifications, newest first. Served by { userId, createdAt: -1 }. */
 export async function findByUserNewestFirst(userId: string) {
   return Notification.find({ userId }).sort({ createdAt: -1 }).lean();
+}
+
+export async function countUnread(userId: string): Promise<number> {
+  return Notification.countDocuments({ userId, read: false });
+}
+
+/**
+ * Sets `read: true` on one of the user's notifications. Returns null when
+ * the id is malformed, unknown, or belongs to someone else.
+ */
+export async function markRead(userId: string, id: string) {
+  if (!isValidObjectId(id)) return null;
+  return Notification.findOneAndUpdate(
+    { _id: id, userId },
+    { $set: { read: true } },
+    { returnDocument: 'after', lean: true },
+  );
 }
 
 /**

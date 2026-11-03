@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import type { UpdatePreferencesDto } from '../dto/preference.dto';
-import { listForUser } from '../services/notification.service';
+import { listForUser, markRead } from '../services/notification.service';
 import {
   getPreferences as loadPreferences,
   replacePreferences,
@@ -19,4 +19,9 @@ export async function getPreferences(req: Request, res: Response) {
 export async function getNotifications(req: Request, res: Response) {
   const notifications = await listForUser(req.userId!);
   res.status(200).json(notifications);
+}
+
+export async function patchRead(req: Request<{ id: string }>, res: Response) {
+  const notification = await markRead(req.userId!, req.params.id);
+  res.status(200).json(notification);
 }

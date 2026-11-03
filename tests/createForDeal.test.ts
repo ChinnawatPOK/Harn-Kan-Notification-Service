@@ -27,6 +27,7 @@ describe('createForDeal', () => {
     const one = await Notification.findOne({ userId: 'drinker' }).lean();
     expect(one).toMatchObject({
       eventId: 'evt-1',
+      type: 'DEAL_CREATED',
       dealId: 'deal-1',
       category: 'DRINK',
       shopName: 'Cafe Amazon',

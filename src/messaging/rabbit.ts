@@ -1,11 +1,17 @@
 import * as amqp from 'amqplib';
 import type { Config } from '../config/env';
-import type { DealCreatedConsumer } from './dealCreated.consumer';
+import type { Consumer } from './consumer';
 
 export const EXCHANGE = 'harnkan.events';
-export const QUEUE = 'notification.deal-created';
-export const ROUTING_KEY = 'deal.created';
 const PREFETCH = 10;
+
+/** The queues this service owns and the routing keys bound to each. */
+export const QUEUES = {
+  dealCreated: { queue: 'notification.deal-created', routingKeys: ['deal.created'] },
+  dealClosed: { queue: 'notification.deal-closed', routingKeys: ['deal.cancelled', 'deal.expired'] },
+} as const;
+
+export type Consumers = Record<keyof typeof QUEUES, Consumer>;
 
 export interface RabbitHandle {
   /** Cancels the consumer, waits for in-flight messages, then closes. */
@@ -20,7 +26,7 @@ export interface RabbitHandle {
  */
 export async function startRabbit(
   config: Config['rabbit'],
-  consumers: { dealCreated: DealCreatedConsumer },
+  consumers: Consumers,
   onFatal: (err: Error) => void,
 ): Promise<RabbitHandle> {
   let channel: amqp.Channel | undefined;
@@ -46,18 +52,23 @@ export async function startRabbit(
           ch.on('error', (err) => console.error('[rabbit] channel error', err));
 
           await ch.assertExchange(EXCHANGE, 'topic', { durable: true, autoDelete: false });
-          await ch.assertQueue(QUEUE, { durable: true, exclusive: false, autoDelete: false });
-          await ch.bindQueue(QUEUE, EXCHANGE, ROUTING_KEY);
           await ch.prefetch(PREFETCH);
 
-          const created = await ch.consume(
-            QUEUE,
-            (msg) => void consumers.dealCreated.onMessage(ch, msg),
-            { noAck: false },
-          );
+          const tags: string[] = [];
+          for (const [key, { queue, routingKeys }] of Object.entries(QUEUES)) {
+            const consumer = consumers[key as keyof typeof QUEUES];
+            await ch.assertQueue(queue, { durable: true, exclusive: false, autoDelete: false });
+            for (const routingKey of routingKeys) {
+              await ch.bindQueue(queue, EXCHANGE, routingKey);
+            }
+            const ok = await ch.consume(queue, (msg) => void consumer.onMessage(ch, msg), {
+              noAck: false,
+            });
+            tags.push(ok.consumerTag);
+            console.log(`[rabbit] consuming ${queue} (bound to ${EXCHANGE} / ${routingKeys.join(', ')})`);
+          }
           channel = ch;
-          consumerTags = [created.consumerTag];
-          console.log(`[rabbit] consuming ${QUEUE} (bound to ${EXCHANGE} / ${ROUTING_KEY})`);
+          consumerTags = tags;
         },
       },
     },
@@ -82,7 +93,7 @@ export async function startRabbit(
           ),
         );
       }
-      await consumers.dealCreated.drain();
+      await Promise.all(Object.values(consumers).map((consumer) => consumer.drain()));
       await channel?.close().catch(() => undefined);
       await connection.close().catch(() => undefined);
       console.log('[rabbit] closed');

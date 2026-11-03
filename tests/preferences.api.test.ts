@@ -68,7 +68,7 @@ describe('PUT /api/notifications/preferences', () => {
     expect(saved).not.toHaveProperty('categories');
   });
 
-  it('gets saved preferences and initializes users without preferences', async () => {
+  it('gets saved preferences, and an empty set without writing for new users', async () => {
     await request(app)
       .put(PATH)
       .set('Authorization', bearer('u1'))
@@ -84,10 +84,8 @@ describe('PUT /api/notifications/preferences', () => {
     expect(saved.status).toBe(200);
     expect(saved.body.categories).toEqual(['FOOD']);
     expect(empty.status).toBe(200);
-    expect(empty.body.categories).toEqual([]);
-    expect(empty.body.updatedAt).toEqual(expect.any(String));
-    expect(await Preference.findOne({ userId: 'u2' }).lean())
-      .toHaveProperty('notification_prefs', []);
+    expect(empty.body).toEqual({ userId: 'u2', categories: [], updatedAt: null });
+    expect(await Preference.exists({ userId: 'u2' })).toBeNull();
   });
 
   it('stores numeric JWT ids as strings', async () => {

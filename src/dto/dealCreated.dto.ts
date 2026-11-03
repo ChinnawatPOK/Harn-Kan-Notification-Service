@@ -1,17 +1,16 @@
 import { z } from "zod";
 import { CATEGORIES } from "../constants/categories";
-import { ValidationError } from "../errors";
-import { parseOrThrow } from "./parse";
+import { parseMessage } from "./parse";
 
-const requiredMessage = (field: string) =>
+export const requiredMessage = (field: string) =>
   `Field "${field}" is required and must be a non-empty string`;
 
-const requiredString = (field: string) =>
+export const requiredString = (field: string) =>
   z
     .string({ error: requiredMessage(field) })
     .refine((v) => v.trim() !== "", { error: requiredMessage(field) });
 
-const requiredId = (field: string) =>
+export const requiredId = (field: string) =>
   z.union([z.number().transform(String), requiredString(field)], {
     error: requiredMessage(field),
   });
@@ -48,14 +47,5 @@ export const dealCreatedSchema = z.object(
 export type DealCreatedEvent = z.output<typeof dealCreatedSchema>;
 
 export function parseDealCreated(content: Buffer): DealCreatedEvent {
-  let body: unknown;
-  try {
-    body = JSON.parse(content.toString("utf8"));
-  } catch {
-    throw new ValidationError("Message body is not valid JSON");
-  }
-  if (Array.isArray(body)) {
-    throw new ValidationError("Message body must be a JSON object");
-  }
-  return parseOrThrow(dealCreatedSchema, body);
+  return parseMessage(dealCreatedSchema, content);
 }

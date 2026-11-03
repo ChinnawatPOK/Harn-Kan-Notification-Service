@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getNotifications,
   getPreferences,
+  patchRead,
   putPreferences,
 } from '../controllers/notification.controller';
 import { updatePreferencesSchema } from '../dto/preference.dto';
@@ -14,5 +15,6 @@ export function notificationRoutes(jwtSecret: string): Router {
   router.get('/preferences', getPreferences);
   router.put('/preferences', validateBody(updatePreferencesSchema), putPreferences);
   router.get('/', getNotifications);
+  router.patch('/:id/read', patchRead);
   return router;
 }

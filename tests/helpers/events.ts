@@ -1,4 +1,5 @@
 import type { DealCreatedEvent } from '../../src/dto/dealCreated.dto';
+import type { DealClosedEvent } from '../../src/dto/dealClosed.dto';
 
 export function dealCreated(overrides: Partial<DealCreatedEvent> = {}): DealCreatedEvent {
   return {
@@ -11,6 +12,15 @@ export function dealCreated(overrides: Partial<DealCreatedEvent> = {}): DealCrea
     shopName: 'Cafe Amazon',
     lat: 13.7563,
     lng: 100.5018,
+    ...overrides,
+  };
+}
+
+export function dealClosed(overrides: Partial<DealClosedEvent> = {}): DealClosedEvent {
+  return {
+    ...dealCreated(),
+    eventType: 'deal.cancelled',
+    participantIds: ['p1', 'p2'],
     ...overrides,
   };
 }

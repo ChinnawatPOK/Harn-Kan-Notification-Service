@@ -10,13 +10,8 @@ export async function upsertCategories(userId: string, categories: Category[]) {
   return doc!;
 }
 
-export async function findOrCreateByUserId(userId: string) {
-  const doc = await Preference.findOneAndUpdate(
-    { userId },
-    { $setOnInsert: { notification_prefs: [] } },
-    { upsert: true, returnDocument: "after", runValidators: true, lean: true },
-  );
-  return doc!;
+export async function findByUserId(userId: string) {
+  return Preference.findOne({ userId }).lean();
 }
 
 export async function findSubscriberIds(

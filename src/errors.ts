@@ -20,6 +20,12 @@ export class ValidationError extends AppError {
   }
 }
 
+export class NotFoundError extends AppError {
+  constructor(message: string) {
+    super(404, 'NOT_FOUND', message);
+  }
+}
+
 export class UnauthorizedError extends AppError {
   constructor(message = 'Missing, invalid or expired token') {
     super(401, 'UNAUTHORIZED', message);

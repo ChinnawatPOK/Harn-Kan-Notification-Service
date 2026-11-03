@@ -1,6 +1,6 @@
 # Harn-Kan Notification Service
 
-Stores which deal categories each user wants and turns every `deal.created` event into in-app notifications for those users.
+Stores which deal categories each user wants, turns every `deal.created` event into in-app notifications for those users, and tells participants when a deal they paid into is cancelled or expires (`deal.cancelled`, `deal.expired`).
 
 Node.js + Express 5 + TypeScript, MongoDB (Mongoose), RabbitMQ (`amqplib`).
 
@@ -47,9 +47,10 @@ All routes need a JWT: `Authorization: Bearer <token>` first, then cookie `token
 
 | Method | Path | Behaviour |
 | --- | --- | --- |
-| `GET` | `/api/notifications/preferences` | Returns the caller's saved preferences. Creates an empty preference record when none exists. |
+| `GET` | `/api/notifications/preferences` | `{ userId, categories, updatedAt }`. A user who never saved gets `categories: []`, `updatedAt: null`; nothing is written. |
 | `PUT` | `/api/notifications/preferences` | Body `{ "categories": ["DRINK"] }`. Replaces the whole set; dedupes; `[]` turns everything off. Stores the values in `notification_prefs` in `notification_db`, keyed by the JWT user ID. 400 for a value outside `DRINK` / `FOOD` (exact match). |
-| `GET` | `/api/notifications` | The caller's notifications, newest first |
+| `GET` | `/api/notifications` | `{ unreadCount, items }`, items newest first. Each item has `type`: `DEAL_CREATED`, `DEAL_CANCELLED` or `DEAL_EXPIRED`. |
+| `PATCH` | `/api/notifications/{id}/read` | Marks one of the caller's notifications read and returns it; repeating is harmless. 404 if unknown or not the caller's. |
 | `GET` | `/health` | Liveness, no auth |
 
 Existing preference documents using the old `categories` field are migrated to
@@ -61,4 +62,9 @@ Existing preference documents using the old `categories` field are migrated to
 | --- | --- |
 | Exchange | `harnkan.events`, topic, durable |
 | Queue (owned here) | `notification.deal-created`, durable, bound with `deal.created` |
+| Queue (owned here) | `notification.deal-closed`, durable, bound with `deal.cancelled` and `deal.expired` |
 | Prefetch / ack | 10, manual |
+
+- `deal.created` notifies everyone subscribed to the deal's category, except the creator.
+- `deal.cancelled` / `deal.expired` notify each user in `participantIds` (the people being refunded), regardless of preferences. An empty list is acked with nothing created.
+- A malformed message is acked and dropped; a failure such as MongoDB being down is requeued. The unique `(eventId, userId)` index makes redeliveries harmless.

@@ -27,11 +27,11 @@ export const updatePreferencesSchema = z
 
 export type UpdatePreferencesDto = z.output<typeof updatePreferencesSchema>;
 
-/** Response of PUT /api/notifications/preferences. */
+/** Response of GET and PUT /api/notifications/preferences. */
 export interface PreferenceResponseDto {
   userId: string;
   categories: Category[];
-  updatedAt: Date;
+  updatedAt: Date | null;
 }
 
 export function toPreferenceResponse(doc: {

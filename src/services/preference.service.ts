@@ -19,6 +19,7 @@ export async function replacePreferences(
 export async function getPreferences(
   userId: string,
 ): Promise<PreferenceResponseDto> {
-  const doc = await preferenceRepository.findOrCreateByUserId(userId);
+  const doc = await preferenceRepository.findByUserId(userId);
+  if (!doc) return { userId, categories: [], updatedAt: null };
   return toPreferenceResponse(doc);
 }

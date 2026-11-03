@@ -2,6 +2,7 @@ import type { Server } from 'node:http';
 import { createApp } from './app';
 import { loadConfig } from './config/env';
 import { connectMongo, disconnectMongo } from './db/mongo';
+import { createDealClosedConsumer } from './messaging/dealClosed.consumer';
 import { createDealCreatedConsumer } from './messaging/dealCreated.consumer';
 import { startRabbit, type RabbitHandle } from './messaging/rabbit';
 
@@ -49,6 +50,7 @@ async function main() {
     config.rabbit,
     {
       dealCreated: createDealCreatedConsumer(),
+      dealClosed: createDealClosedConsumer(),
     },
     (err) => {
       console.error('[rabbit] gave up reconnecting', err);
