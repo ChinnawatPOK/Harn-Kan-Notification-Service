@@ -38,6 +38,7 @@ npm run dev
 | `MONGO_URI` | yes | e.g. `mongodb://notification_service_app:<password>@localhost:27017/notification_db` |
 | `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD` | yes | |
 | `JWT_SECRET` | yes | Must match User Service; HS256 |
+| `EXPO_ACCESS_TOKEN` | no | Only when enhanced push security is on in the Expo project |
 
 The service exits on startup if a required variable is missing.
 
@@ -51,6 +52,8 @@ All routes need a JWT: `Authorization: Bearer <token>` first, then cookie `token
 | `PUT` | `/api/notifications/preferences` | Body `{ "categories": ["DRINK"] }`. Replaces the whole set; dedupes; `[]` turns everything off. Stores the values in `notification_prefs` in `notification_db`, keyed by the JWT user ID. 400 for a value outside `DRINK` / `FOOD` (exact match). |
 | `GET` | `/api/notifications` | `{ unreadCount, items }`, items newest first. Each item has `type`: `DEAL_CREATED`, `DEAL_CANCELLED` or `DEAL_EXPIRED`. |
 | `PATCH` | `/api/notifications/{id}/read` | Marks one of the caller's notifications read and returns it; repeating is harmless. 404 if unknown or not the caller's. |
+| `PUT` | `/api/notifications/devices` | Body `{ "token": "ExponentPushToken[...]", "platform": "ios" \| "android" }`. Registers the device for push; safe to repeat. A token registered by another user moves to the caller. 400 for a token that is not an Expo push token. |
+| `DELETE` | `/api/notifications/devices/{token}` | Stops push to that device. Always `204`; only the caller's own token is removed. |
 | `GET` | `/health` | Liveness, no auth |
 
 Existing preference documents using the old `categories` field are migrated to
@@ -68,3 +71,13 @@ Existing preference documents using the old `categories` field are migrated to
 - `deal.created` notifies everyone subscribed to the deal's category, except the creator.
 - `deal.cancelled` / `deal.expired` notify each user in `participantIds` (the people being refunded), regardless of preferences. An empty list is acked with nothing created.
 - A malformed message is acked and dropped; a failure such as MongoDB being down is requeued. The unique `(eventId, userId)` index makes redeliveries harmless.
+
+## Push
+
+Pushes always go through the Expo Push API. The inbox in MongoDB stays the source of truth; push is best-effort.
+
+- Only `deal.cancelled` / `deal.expired` push, to every registered device of each participant. `deal.created` is inbox-only until deals are filtered by distance.
+- The push runs after the message is acked, and only for notifications created by that delivery, so a redelivery never pushes twice and a push failure never requeues.
+- Each push has `data: { type, dealId, notificationId }` so the app can open the deal and mark the notification read.
+- Tokens that Expo reports as `DeviceNotRegistered` are deleted. Other failures are logged and not retried; push receipts are not checked yet.
+- Device tokens live in the `device_tokens` collection, unique by token (a user can have several devices).

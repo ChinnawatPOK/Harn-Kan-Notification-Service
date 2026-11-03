@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { DeviceToken } from '../models/deviceToken.model';
 import { Notification } from '../models/notification.model';
 import { Preference } from '../models/preference.model';
 
@@ -22,7 +23,11 @@ export async function ensureIndexes(): Promise<void> {
     console.log(`[mongo] migrated ${migration.modifiedCount} notification preferences`);
   }
 
-  await Promise.all([Preference.createIndexes(), Notification.createIndexes()]);
+  await Promise.all([
+    Preference.createIndexes(),
+    Notification.createIndexes(),
+    DeviceToken.createIndexes(),
+  ]);
 }
 
 export async function disconnectMongo(): Promise<void> {

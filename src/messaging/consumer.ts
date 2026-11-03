@@ -1,4 +1,5 @@
 import type { Channel, ConsumeMessage } from "amqplib";
+import type { InsertedNotification } from "../dto/notification.dto";
 import { ValidationError } from "../errors";
 
 export type AckChannel = Pick<Channel, "ack" | "nack">;
@@ -8,16 +9,20 @@ export type AckChannel = Pick<Channel, "ack" | "nack">;
  * - invalid message (bad JSON, missing field, unknown value): ack and drop
  * - handled (duplicates count as success): ack
  * - anything else (e.g. Mongo down): nack with requeue
+ *
+ * `afterAck` runs only once the message is acked, with the notifications
+ * created this time, so its failures never cause a redelivery.
  */
 export function createConsumer<E extends { eventId: string }>(options: {
   /** Log prefix, e.g. the routing key. */
   name: string;
   /** Throws ValidationError for a message that can never be handled. */
   parse: (content: Buffer) => E;
-  /** Returns how many notifications were newly created. */
-  handle: (event: E) => Promise<number>;
+  /** Returns the notifications newly created (none for a duplicate). */
+  handle: (event: E) => Promise<InsertedNotification[]>;
+  afterAck?: (created: InsertedNotification[]) => Promise<unknown>;
 }) {
-  const { name, parse, handle } = options;
+  const { name, parse, handle, afterAck } = options;
   const inFlight = new Set<Promise<void>>();
 
   async function process(
@@ -36,15 +41,23 @@ export function createConsumer<E extends { eventId: string }>(options: {
       return;
     }
 
+    let created: InsertedNotification[];
     try {
-      const created = await handle(event);
+      created = await handle(event);
       console.log(
-        `[${name}] event ${event.eventId} -> ${created} new notification(s)`,
+        `[${name}] event ${event.eventId} -> ${created.length} new notification(s)`,
       );
       safely(() => channel.ack(msg));
     } catch (err) {
       console.error(`[${name}] event ${event.eventId} failed, requeueing`, err);
       safely(() => channel.nack(msg, false, true));
+      return;
+    }
+
+    if (afterAck && created.length > 0) {
+      await afterAck(created).catch((err) =>
+        console.error(`[${name}] after-ack step failed for ${event.eventId}`, err),
+      );
     }
   }
 

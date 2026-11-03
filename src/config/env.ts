@@ -8,34 +8,42 @@ export interface Config {
     password: string;
   };
   jwtSecret: string;
+  push: {
+    expoAccessToken?: string;
+  };
 }
 
 const REQUIRED = [
-  'MONGO_URI',
-  'RABBITMQ_HOST',
-  'RABBITMQ_PORT',
-  'RABBITMQ_USER',
-  'RABBITMQ_PASSWORD',
-  'JWT_SECRET',
+  "MONGO_URI",
+  "RABBITMQ_HOST",
+  "RABBITMQ_PORT",
+  "RABBITMQ_USER",
+  "RABBITMQ_PASSWORD",
+  "JWT_SECRET",
 ] as const;
 
 /** Reads config from env and fails fast if anything required is missing. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const missing = REQUIRED.filter((key) => !env[key]);
   if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+    throw new Error(
+      `Missing required environment variables: ${missing.join(", ")}`,
+    );
   }
 
   return {
-    port: toPort('PORT', env.PORT ?? '3002'),
+    port: toPort("PORT", env.PORT ?? "3002"),
     mongoUri: env.MONGO_URI!,
     rabbit: {
       host: env.RABBITMQ_HOST!,
-      port: toPort('RABBITMQ_PORT', env.RABBITMQ_PORT!),
+      port: toPort("RABBITMQ_PORT", env.RABBITMQ_PORT!),
       user: env.RABBITMQ_USER!,
       password: env.RABBITMQ_PASSWORD!,
     },
     jwtSecret: env.JWT_SECRET!,
+    push: {
+      expoAccessToken: env.EXPO_ACCESS_TOKEN || undefined,
+    },
   };
 }
 

@@ -34,6 +34,11 @@ export interface CreateNotificationDto {
   message: string;
 }
 
+/** A notification the fan-out just created, with its new id. */
+export interface InsertedNotification extends CreateNotificationDto {
+  _id: Types.ObjectId;
+}
+
 export function toNotificationResponse(doc: {
   _id: Types.ObjectId;
   eventId: string;

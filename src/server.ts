@@ -5,6 +5,9 @@ import { connectMongo, disconnectMongo } from './db/mongo';
 import { createDealClosedConsumer } from './messaging/dealClosed.consumer';
 import { createDealCreatedConsumer } from './messaging/dealCreated.consumer';
 import { startRabbit, type RabbitHandle } from './messaging/rabbit';
+import { createExpoPushSender } from './push/pushSender';
+import { createForParticipants } from './services/notification.service';
+import { pushNotifications } from './services/push.service';
 
 /**
  * Startup order: Mongo + indexes, then RabbitMQ + consumer, then HTTP.
@@ -46,11 +49,16 @@ async function main() {
 
   await connectMongo(config.mongoUri);
 
+  const push = createExpoPushSender(config.push.expoAccessToken);
+
   rabbit = await startRabbit(
     config.rabbit,
     {
       dealCreated: createDealCreatedConsumer(),
-      dealClosed: createDealClosedConsumer(),
+      dealClosed: createDealClosedConsumer(
+        createForParticipants,
+        (created) => pushNotifications(push, created),
+      ),
     },
     (err) => {
       console.error('[rabbit] gave up reconnecting', err);

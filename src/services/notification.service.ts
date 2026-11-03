@@ -3,6 +3,7 @@ import type { DealCreatedEvent } from "../dto/dealCreated.dto";
 import {
   toNotificationResponse,
   type CreateNotificationDto,
+  type InsertedNotification,
   type NotificationListResponseDto,
   type NotificationResponseDto,
 } from "../dto/notification.dto";
@@ -33,10 +34,12 @@ export async function markRead(
 /**
  * Creates one notification per subscriber of the deal's category.
  *
- * Returns how many notifications were newly inserted. Throws on any error
- * other than duplicate keys, so the caller can requeue.
+ * Returns the notifications newly inserted. Throws on any error other than
+ * duplicate keys, so the caller can requeue.
  */
-export async function createForDeal(event: DealCreatedEvent): Promise<number> {
+export async function createForDeal(
+  event: DealCreatedEvent,
+): Promise<InsertedNotification[]> {
   const recipientIds = await preferenceRepository.findSubscriberIds(
     event.category,
     event.creatorId,
@@ -59,12 +62,12 @@ export async function createForDeal(event: DealCreatedEvent): Promise<number> {
  * Tells each participant in `participantIds` that the deal was cancelled or
  * expired and their money is being refunded. Preferences do not apply.
  *
- * Returns how many notifications were newly inserted. Throws on any error
- * other than duplicate keys, so the caller can requeue.
+ * Returns the notifications newly inserted. Throws on any error other than
+ * duplicate keys, so the caller can requeue.
  */
 export async function createForParticipants(
   event: DealClosedEvent,
-): Promise<number> {
+): Promise<InsertedNotification[]> {
   const cancelled = event.eventType === "deal.cancelled";
   const message = cancelled
     ? `ดีล ${event.shopName} ถูกยกเลิก กำลังคืนเงินให้คุณ`
