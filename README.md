@@ -71,7 +71,7 @@ Existing preference documents using the old `categories` field are migrated to
 
 - `deal.created` notifies users within 500 m of the deal who subscribe to its category, except the creator. User Service answers who is nearby; users without a location from the last 24 hours are not included.
 - `deal.cancelled` / `deal.expired` notify each user in `participantIds` (the people being refunded), regardless of preferences. An empty list is acked with nothing created.
-- A malformed message, or coordinates User Service rejects with a 400, is acked and dropped. A failure such as MongoDB or User Service being down is requeued immediately, with no delay yet. The unique `(eventId, userId)` index makes redeliveries harmless.
+- A malformed message, or coordinates User Service rejects with a 400, is acked and dropped. A failure such as MongoDB or User Service being down is requeued. For `deal.created` the requeue waits 5 seconds, and an event more than 30 minutes old is acked and dropped instead, so nobody is told about an old deal as new; `deal.cancelled` / `deal.expired` requeue immediately and are never dropped this way. The unique `(eventId, userId)` index makes redeliveries harmless.
 
 ## Push
 
