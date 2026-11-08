@@ -12,7 +12,7 @@ describe('createForParticipants', () => {
 
     const created = await createForParticipants(dealClosed());
 
-    expect(created).toBe(2);
+    expect(created).toHaveLength(2);
     const docs = await Notification.find().sort({ userId: 1 }).lean();
     expect(docs.map((n) => n.userId)).toEqual(['p1', 'p2']);
     expect(docs[0]).toMatchObject({
@@ -36,13 +36,13 @@ describe('createForParticipants', () => {
   });
 
   it('does nothing for an empty participantIds', async () => {
-    expect(await createForParticipants(dealClosed({ participantIds: [] }))).toBe(0);
+    expect(await createForParticipants(dealClosed({ participantIds: [] }))).toHaveLength(0);
     expect(await Notification.countDocuments()).toBe(0);
   });
 
   it('is idempotent when the same event is delivered twice', async () => {
-    expect(await createForParticipants(dealClosed())).toBe(2);
-    expect(await createForParticipants(dealClosed())).toBe(0);
+    expect(await createForParticipants(dealClosed())).toHaveLength(2);
+    expect(await createForParticipants(dealClosed())).toHaveLength(0);
     expect(await Notification.countDocuments()).toBe(2);
   });
 });
