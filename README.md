@@ -1,6 +1,6 @@
 # Harn-Kan Notification Service
 
-Stores which deal categories each user wants, turns every `deal.created` event into in-app notifications for those users, and tells participants when a deal they paid into is cancelled or expires (`deal.cancelled`, `deal.expired`).
+Stores which deal categories each user wants, turns every `deal.created` event into in-app and push notifications for nearby users who want that category, and tells participants when a deal they paid into is cancelled or expires (`deal.cancelled`, `deal.expired`).
 
 Node.js + Express 5 + TypeScript, MongoDB (Mongoose), RabbitMQ (`amqplib`).
 
@@ -39,6 +39,7 @@ npm run dev
 | `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD` | yes | |
 | `JWT_SECRET` | yes | Must match User Service; HS256 |
 | `EXPO_ACCESS_TOKEN` | no | Only when enhanced push security is on in the Expo project |
+| `USER_SERVICE_URL` | yes | e.g. `http://localhost:3000`; used for the nearby user lookup |
 
 The service exits on startup if a required variable is missing.
 
@@ -68,15 +69,15 @@ Existing preference documents using the old `categories` field are migrated to
 | Queue (owned here) | `notification.deal-closed`, durable, bound with `deal.cancelled` and `deal.expired` |
 | Prefetch / ack | 10, manual |
 
-- `deal.created` notifies everyone subscribed to the deal's category, except the creator.
+- `deal.created` notifies users within 500 m of the deal who subscribe to its category, except the creator. User Service answers who is nearby; users without a location from the last 24 hours are not included.
 - `deal.cancelled` / `deal.expired` notify each user in `participantIds` (the people being refunded), regardless of preferences. An empty list is acked with nothing created.
-- A malformed message is acked and dropped; a failure such as MongoDB being down is requeued. The unique `(eventId, userId)` index makes redeliveries harmless.
+- A malformed message, or coordinates User Service rejects with a 400, is acked and dropped. A failure such as MongoDB or User Service being down is requeued immediately, with no delay yet. The unique `(eventId, userId)` index makes redeliveries harmless.
 
 ## Push
 
 Pushes always go through the Expo Push API. The inbox in MongoDB stays the source of truth; push is best-effort.
 
-- Only `deal.cancelled` / `deal.expired` push, to every registered device of each participant. `deal.created` is inbox-only until deals are filtered by distance.
+- Every notification pushes to all registered devices of its recipient: `deal.created` to nearby subscribers, `deal.cancelled` / `deal.expired` to participants.
 - The push runs after the message is acked, and only for notifications created by that delivery, so a redelivery never pushes twice and a push failure never requeues.
 - Each push has `data: { type, dealId, notificationId }` so the app can open the deal and mark the notification read.
 - Tokens that Expo reports as `DeviceNotRegistered` are deleted. Other failures are logged and not retried; push receipts are not checked yet.

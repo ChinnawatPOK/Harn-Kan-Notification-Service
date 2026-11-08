@@ -11,6 +11,9 @@ export interface Config {
   push: {
     expoAccessToken?: string;
   };
+  userService: {
+    url: string;
+  };
 }
 
 const REQUIRED = [
@@ -20,6 +23,7 @@ const REQUIRED = [
   "RABBITMQ_USER",
   "RABBITMQ_PASSWORD",
   "JWT_SECRET",
+  "USER_SERVICE_URL",
 ] as const;
 
 /** Reads config from env and fails fast if anything required is missing. */
@@ -43,6 +47,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     jwtSecret: env.JWT_SECRET!,
     push: {
       expoAccessToken: env.EXPO_ACCESS_TOKEN || undefined,
+    },
+    userService: {
+      url: env.USER_SERVICE_URL!,
     },
   };
 }

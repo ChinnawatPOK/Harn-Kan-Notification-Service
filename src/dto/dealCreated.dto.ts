@@ -37,7 +37,6 @@ export const dealCreatedSchema = z.object(
           : requiredMessage("category"),
     }),
     shopName: requiredString("shopName"),
-    /** Sent for the 500 m radius filter in a later round; not used now. */
     lat: requiredNumber("lat"),
     lng: requiredNumber("lng"),
   },

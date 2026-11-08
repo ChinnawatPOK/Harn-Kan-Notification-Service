@@ -1,3 +1,4 @@
+import type { FindNearbyUserIds } from "../clients/userService.client";
 import type { DealClosedEvent } from "../dto/dealClosed.dto";
 import type { DealCreatedEvent } from "../dto/dealCreated.dto";
 import {
@@ -9,7 +10,7 @@ import {
 } from "../dto/notification.dto";
 import { NotFoundError } from "../errors";
 import * as notificationRepository from "../repositories/notification.repository";
-import * as preferenceRepository from "../repositories/preference.repository";
+import { findNearbyRecipients } from "./nearbyRecipient.service";
 
 /** The caller's notifications, newest first, with how many are unread. */
 export async function listForUser(
@@ -32,18 +33,16 @@ export async function markRead(
 }
 
 /**
- * Creates one notification per subscriber of the deal's category.
+ * Creates one notification per nearby subscriber of the deal's category.
  *
  * Returns the notifications newly inserted. Throws on any error other than
  * duplicate keys, so the caller can requeue.
  */
 export async function createForDeal(
   event: DealCreatedEvent,
+  findNearbyUserIds: FindNearbyUserIds,
 ): Promise<InsertedNotification[]> {
-  const recipientIds = await preferenceRepository.findSubscriberIds(
-    event.category,
-    event.creatorId,
-  );
+  const recipientIds = await findNearbyRecipients(event, findNearbyUserIds);
 
   const docs: CreateNotificationDto[] = recipientIds.map((userId) => ({
     eventId: event.eventId,
@@ -52,7 +51,7 @@ export async function createForDeal(
     dealId: event.dealId,
     category: event.category,
     shopName: event.shopName,
-    message: `New ${event.category} deal at ${event.shopName}`,
+    message: `มีดีลใหม่ใกล้คุณที่ ${event.shopName}`,
   }));
 
   return notificationRepository.insertManyIgnoringDuplicates(docs);

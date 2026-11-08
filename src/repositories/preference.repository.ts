@@ -14,12 +14,14 @@ export async function findByUserId(userId: string) {
   return Preference.findOne({ userId }).lean();
 }
 
-export async function findSubscriberIds(
+export async function findSubscriberIdsAmong(
   category: Category,
+  userIds: string[],
   excludeUserId: string,
 ): Promise<string[]> {
+  if (userIds.length === 0) return [];
   const docs = await Preference.find(
-    { notification_prefs: category, userId: { $ne: excludeUserId } },
+    { notification_prefs: category, userId: { $in: userIds, $ne: excludeUserId } },
     { userId: 1, _id: 0 },
   ).lean();
   return docs.map((d) => d.userId);

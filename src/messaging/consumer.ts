@@ -7,6 +7,7 @@ export type AckChannel = Pick<Channel, "ack" | "nack">;
 /**
  * Handles deliveries with manual ack:
  * - invalid message (bad JSON, missing field, unknown value): ack and drop
+ * - `handle` throws ValidationError (retrying cannot help): ack and drop
  * - handled (duplicates count as success): ack
  * - anything else (e.g. Mongo down): nack with requeue
  *
@@ -49,6 +50,11 @@ export function createConsumer<E extends { eventId: string }>(options: {
       );
       safely(() => channel.ack(msg));
     } catch (err) {
+      if (err instanceof ValidationError) {
+        console.error(`[${name}] dropping event ${event.eventId}: ${err.message}`);
+        safely(() => channel.ack(msg));
+        return;
+      }
       console.error(`[${name}] event ${event.eventId} failed, requeueing`, err);
       safely(() => channel.nack(msg, false, true));
       return;

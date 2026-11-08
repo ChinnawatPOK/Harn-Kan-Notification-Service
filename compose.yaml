@@ -22,6 +22,7 @@ services:
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-harnkan}
       JWT_SECRET: ${JWT_SECRET}
       EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
+      USER_SERVICE_URL: http://user-service:3000
     networks: [harnkan-net]
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"]
